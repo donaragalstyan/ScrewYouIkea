@@ -1,8 +1,3 @@
-// backend/index.js
-// created to test if backend works fine
-// !! run from the backend folder !!
-// run with `node index.js` or `npm start` or `npm run dev` after setting up .env file
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -17,13 +12,13 @@ try {
   console.warn('Error:', error.message);
 }
 
-const app = express()
-app.use(cors())
-app.use(express.json({ limit: '25mb' }))
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '25mb' }));
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
-})
+// mount the router you already have
+const genThreeRouter = require('./routes/genThree');
+app.use('/api/gen-three', genThreeRouter);
 
 // Gemini endpoints
 if (GeminiClient) {
@@ -82,16 +77,16 @@ if (GeminiClient) {
   });
 }
 
-const port = process.env.PORT || 5050
-app.listen(port, () => {
-  console.log(`Server running on :${port}`)
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, () => {
+  console.log(`Server running on :${PORT}`);
   if (GeminiClient) {
-    console.log('Gemini endpoints available:')
-    console.log('- POST /api/extract-step')
-    console.log('- POST /api/generate-code') 
-    console.log('- POST /api/answer-question')
-    console.log('- POST /api/embed')
+    console.log('Gemini endpoints available:');
+    console.log('- POST /api/extract-step');
+    console.log('- POST /api/generate-code');
+    console.log('- POST /api/answer-question');
+    console.log('- POST /api/embed');
   } else {
-    console.log('Run `npx tsc` to enable Gemini endpoints')
+    console.log('Run `npx tsc` to enable Gemini endpoints');
   }
-})
+});
