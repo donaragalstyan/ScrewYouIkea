@@ -66,12 +66,12 @@ ScrewYouIkea revolutionizes the furniture assembly experience by converting stat
 
 2. **Install dependencies**
    ```bash
-   pnpm install
+   npm install
    ```
 
 3. **Start the development server**
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 4. **Open your browser**
@@ -80,10 +80,9 @@ ScrewYouIkea revolutionizes the furniture assembly experience by converting stat
 ### Available Scripts
 
 ```bash
-pnpm dev      # Start development server
-pnpm build    # Build for production
-pnpm start    # Start production server
-pnpm lint     # Run ESLint
+next dev      # Start development server
+next build    # Build for production
+next start    # Start production server
 ```
 
 ## Project Structure
