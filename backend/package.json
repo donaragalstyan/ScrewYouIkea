@@ -22,7 +22,8 @@
     "multer": "^2.0.2"
   },
   "devDependencies": {
+    "@types/node": "^22.10.1",
     "nodemon": "^3.1.10",
-    "@types/node": "^22.10.1"
+    "typescript": "^5.9.3"
   }
 }
