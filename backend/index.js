@@ -2,7 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// Import the compiled GeminiClient (will need to compile TypeScript first)
+// --- NEW: Mongo connection helper
+const { connectMongo } = require('./db');
+
 let GeminiClient;
 try {
   const { GeminiClient: Client } = require('./dist/gemini/client.js');
@@ -16,15 +18,33 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 
-// mount the router you already have
+// --- NEW: connect to MongoDB once on startup
+(async () => {
+  try {
+    await connectMongo(
+      process.env.MONGODB_URI,
+      process.env.DB_NAME,
+      process.env.BUCKET_NAME
+    );
+    console.log('Connected to MongoDB');
+  } catch (e) {
+    console.error('Mongo connection failed:', e);
+    process.exit(1); // fail fast if DB is required
+  }
+})();
+
+// --- Existing routes
 const genThreeRouter = require('./routes/genThree');
 app.use('/api/gen-three', genThreeRouter);
+
+// --- NEW: files (GridFS) routes
+const filesRouter = require('./routes/files');
+app.use('/api/files', filesRouter);
 
 // Gemini endpoints
 if (GeminiClient) {
   const geminiClient = new GeminiClient();
 
-  // Extract step from image
   app.post('/api/extract-step', async (req, res) => {
     try {
       const result = await geminiClient.extractStep(req.body);
@@ -35,7 +55,6 @@ if (GeminiClient) {
     }
   });
 
-  // Generate Three.js code
   app.post('/api/generate-code', async (req, res) => {
     try {
       const result = await geminiClient.generateThreeCode(req.body);
@@ -46,7 +65,6 @@ if (GeminiClient) {
     }
   });
 
-  // Answer questions
   app.post('/api/answer-question', async (req, res) => {
     try {
       const result = await geminiClient.answerQuestion(req.body);
@@ -57,7 +75,6 @@ if (GeminiClient) {
     }
   });
 
-  // Generate embeddings
   app.post('/api/embed', async (req, res) => {
     try {
       const result = await geminiClient.embed(req.body);
@@ -68,7 +85,6 @@ if (GeminiClient) {
     }
   });
 } else {
-  // Fallback endpoints when TypeScript isn't compiled
   const endpoints = ['/api/extract-step', '/api/generate-code', '/api/answer-question', '/api/embed'];
   endpoints.forEach(endpoint => {
     app.post(endpoint, (_req, res) => {
@@ -76,6 +92,9 @@ if (GeminiClient) {
     });
   });
 }
+
+// (optional) quick health check
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
@@ -89,4 +108,9 @@ app.listen(PORT, () => {
   } else {
     console.log('Run `npx tsc` to enable Gemini endpoints');
   }
+  console.log('Files endpoints:');
+  console.log('- POST   /api/files/upload');
+  console.log('- GET    /api/files');
+  console.log('- GET    /api/files/:id');
+  console.log('- DELETE /api/files/:id');
 });
