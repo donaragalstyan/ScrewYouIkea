@@ -1,6 +1,11 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
+// backend/index.js
+// created to test if backend works fine
+// !! run from the backend folder !!
+// run with `node index.js` or `npm start` or `npm run dev` after setting up .env file
+
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
 
 const app = express()
 app.use(cors())
