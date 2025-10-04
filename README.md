@@ -54,7 +54,7 @@ ScrewYouIkea revolutionizes the furniture assembly experience by converting stat
 
 ### Prerequisites
 - Node.js 18+ 
-- pnpm (recommended) or npm
+- Next.js
 
 ### Installation
 
