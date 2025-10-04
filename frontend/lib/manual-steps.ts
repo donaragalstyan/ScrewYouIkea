@@ -1,10 +1,4 @@
-export type ManualStep = {
-  index: number
-  title: string
-  thumbnail: string
-  warnings: string[]
-  threeCode?: string
-}
+import type { ManualDetail, ManualPartDefinition, ManualStepData, ManualStepPartUsage, ManualSummary } from "@/lib/manual-types"
 
 const pointerControlsSnippet = `const state = { isPointerDown: false, lastX: 0, lastY: 0, targetX: 0.35, targetY: Math.PI / 4 };
 const zoomState = { z: camera.position.length(), min: 3, max: 12 };
@@ -279,93 +273,186 @@ root.add(plane);
 ${sharedAnimate}
 `;
 
-export const manualSteps: ManualStep[] = [
+const BASE_PARTS = [
+  {
+    id: "A",
+    name: "Side frame",
+    quantity: 2,
+    imageUrl: "/part-a-side-frame.jpg",
+    usedInSteps: [1, 2],
+  },
+  {
+    id: "B",
+    name: "Shelf panel",
+    quantity: 4,
+    imageUrl: "/part-b-shelf-panel.jpg",
+    usedInSteps: [3, 4, 5],
+  },
+  {
+    id: "C",
+    name: "Back panel",
+    quantity: 1,
+    imageUrl: "/part-c-back-panel.jpg",
+    usedInSteps: [6],
+  },
+  {
+    id: "D",
+    name: "Leg",
+    quantity: 4,
+    imageUrl: "/part-d-leg.jpg",
+    usedInSteps: [1],
+  },
+  {
+    id: "S1",
+    name: "Screw M6",
+    quantity: 16,
+    imageUrl: "/part-s1-screw.jpg",
+    usedInSteps: [1, 2, 3, 4, 5, 6, 7],
+  },
+  {
+    id: "S2",
+    name: "Washer",
+    quantity: 16,
+    imageUrl: "/part-s2-washer.jpg",
+    usedInSteps: [1, 2, 3, 4, 5, 6, 7],
+  },
+  {
+    id: "T1",
+    name: "Allen key",
+    quantity: 1,
+    imageUrl: "/part-t1-allen-key.jpg",
+    usedInSteps: [1, 2, 3, 4, 5, 6, 7],
+  },
+  {
+    id: "T2",
+    name: "Wrench",
+    quantity: 1,
+    imageUrl: "/part-t2-wrench.jpg",
+    usedInSteps: [7],
+  },
+]
+
+const STEP_META = [
   {
     index: 0,
-    title: 'Prepare workspace',
-    thumbnail: '/step-1-prepare-workspace.jpg',
-    warnings: ['Ensure flat surface'],
-    threeCode: stepOneCode,
+    title: "Prepare workspace",
+    thumbnail: "/step-1-prepare-workspace.jpg",
+    warnings: ["Ensure flat surface"],
   },
   {
     index: 1,
-    title: 'Attach legs to frame',
-    thumbnail: '/step-2-attach-legs.jpg',
+    title: "Attach legs to frame",
+    thumbnail: "/step-2-attach-legs.jpg",
     warnings: [],
-    threeCode: stepTwoCode,
   },
   {
     index: 2,
-    title: 'Install side panels',
-    thumbnail: '/step-3-side-panels.jpg',
-    warnings: ['Do not overtighten'],
-    threeCode: stepThreeCode,
+    title: "Install side panels",
+    thumbnail: "/step-3-side-panels.jpg",
+    warnings: ["Do not overtighten"],
   },
   {
     index: 3,
-    title: 'Secure bottom shelf',
-    thumbnail: '/step-4-bottom-shelf.jpg',
+    title: "Secure bottom shelf",
+    thumbnail: "/step-4-bottom-shelf.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 4,
-    title: 'Add middle shelf',
-    thumbnail: '/step-5-middle-shelf.jpg',
+    title: "Add middle shelf",
+    thumbnail: "/step-5-middle-shelf.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 5,
-    title: 'Install top shelf',
-    thumbnail: '/step-6-top-shelf.jpg',
+    title: "Install top shelf",
+    thumbnail: "/step-6-top-shelf.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 6,
-    title: 'Attach back panel',
-    thumbnail: '/step-7-back-panel.jpg',
-    warnings: ['Align carefully'],
-    threeCode: defaultCode,
+    title: "Attach back panel",
+    thumbnail: "/step-7-back-panel.jpg",
+    warnings: ["Align carefully"],
   },
   {
     index: 7,
-    title: 'Secure all fasteners',
-    thumbnail: '/step-8-secure-fasteners.jpg',
+    title: "Secure all fasteners",
+    thumbnail: "/step-8-secure-fasteners.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 8,
-    title: 'Check stability',
-    thumbnail: '/step-9-check-stability.jpg',
-    warnings: ['Test before loading'],
-    threeCode: defaultCode,
+    title: "Check stability",
+    thumbnail: "/step-9-check-stability.jpg",
+    warnings: ["Test before loading"],
   },
   {
     index: 9,
-    title: 'Final adjustments',
-    thumbnail: '/step-10-adjustments.jpg',
+    title: "Final adjustments",
+    thumbnail: "/step-10-adjustments.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 10,
-    title: 'Clean up',
-    thumbnail: '/step-11-cleanup.jpg',
+    title: "Clean up",
+    thumbnail: "/step-11-cleanup.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
   {
     index: 11,
-    title: 'Complete',
-    thumbnail: '/step-12-complete.jpg',
+    title: "Complete",
+    thumbnail: "/step-12-complete.jpg",
     warnings: [],
-    threeCode: defaultCode,
   },
-];
+]
 
-export function getStepCode(index: number): string | undefined {
-  return manualSteps.find((step) => step.index === index)?.threeCode;
+const stepCodeLookup: Record<number, string> = {
+  0: stepOneCode,
+  1: stepTwoCode,
+  2: stepThreeCode,
 }
+
+function buildPartsUsedForStep(stepIndex: number): ManualStepPartUsage[] | undefined {
+  const partsUsed = BASE_PARTS.filter((part) => part.usedInSteps.includes(stepIndex + 1)).map((part) => ({
+    partId: part.id,
+  }))
+  return partsUsed.length > 0 ? partsUsed : undefined
+}
+
+const stepsData: ManualStepData[] = STEP_META.map((meta) => {
+  const instructions = [`${meta.title}. Follow the illustration to complete step ${meta.index + 1}.`]
+  return {
+    index: meta.index,
+    title: meta.title,
+    imageUrl: meta.thumbnail,
+    instructions,
+    warnings: meta.warnings,
+    threeCode: stepCodeLookup[meta.index] ?? defaultCode,
+    partsUsed: buildPartsUsedForStep(meta.index),
+  }
+})
+
+const partsCatalog: ManualPartDefinition[] = BASE_PARTS.map((part) => ({
+  id: part.id,
+  name: part.name,
+  quantity: part.quantity,
+  imageUrl: part.imageUrl,
+}))
+
+export const demoManualSummary: ManualSummary = {
+  id: "m_001",
+  title: "BROR Shelf Unit",
+  status: "completed",
+  thumbnail: STEP_META[0].thumbnail,
+  steps: STEP_META.length,
+  parts: partsCatalog.length,
+  uploadedAt: "2 hours ago",
+}
+
+export const demoManualDetail: ManualDetail = {
+  ...demoManualSummary,
+  stepsData,
+  partsCatalog,
+}
+

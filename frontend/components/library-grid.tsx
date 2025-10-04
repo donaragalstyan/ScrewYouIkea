@@ -1,12 +1,13 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Play, MoreVertical } from "lucide-react"
 import Link from "next/link"
+import type { ManualSummary } from "@/lib/manual-types"
 
-// Mock data for demonstration
-const manuals = [
+const FALLBACK_MANUALS: ManualSummary[] = [
   {
     id: "m_001",
     title: "BROR Shelf Unit",
@@ -63,8 +64,71 @@ const manuals = [
   },
 ]
 
+function formatUploadedAt(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString()
+}
+
 export function LibraryGrid() {
-  const viewableManuals = manuals.filter((manual) => manual.status === "completed")
+  const [manuals, setManuals] = useState<ManualSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError(null)
+
+    fetch("/api/manuals")
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch manuals: ${response.status}`)
+        }
+        return response.json()
+      })
+      .then((data: ManualSummary[]) => {
+        if (!active) return
+        setManuals(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!active) return
+        console.error("Failed to load manuals", err)
+        setError(err instanceof Error ? err.message : String(err))
+        setManuals(FALLBACK_MANUALS)
+        setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const viewableManuals = useMemo(
+    () => (manuals.length > 0 ? manuals : FALLBACK_MANUALS).filter((manual) => manual.status === "completed"),
+    [manuals],
+  )
+
+  if (loading) {
+    return (
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="h-64 animate-pulse border-2 border-secondary/40 bg-secondary/10" />
+        ))}
+      </div>
+    )
+  }
+
+  if (error && viewableManuals.length === 0) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-6 text-center text-sm text-destructive">
+        Unable to load manuals right now. {error}
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -110,7 +174,7 @@ export function LibraryGrid() {
             </CardContent>
 
             <CardFooter className="border-t-2 border-secondary bg-secondary/30 p-3 text-xs text-secondary-foreground font-medium">
-              Uploaded {manual.uploadedAt}
+              Uploaded {formatUploadedAt(manual.uploadedAt)}
             </CardFooter>
           </Card>
         )
