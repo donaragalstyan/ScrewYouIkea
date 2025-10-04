@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer'
+import { readFile } from 'node:fs/promises'
 import { GoogleGenerativeAI, type Content, type GenerativeModel, type Part } from '@google/generative-ai'
 
 export type GeminiImageSource =
@@ -7,6 +8,7 @@ export type GeminiImageSource =
   | { kind: 'dataUrl'; dataUrl: string }
   | { kind: 'file'; file: File }
   | { kind: 'buffer'; buffer: Buffer; mimeType: string }
+  | { kind: 'pdf'; filePath: string }
 
 export type SceneExtractionRequest = {
   image: GeminiImageSource
@@ -319,6 +321,21 @@ async function resolveImageSource(source: GeminiImageSource): Promise<Part> {
         data: source.buffer.toString('base64'),
         mimeType: source.mimeType,
       },
+    }
+  }
+
+  if (source.kind === 'pdf') {
+    try {
+      const pdfBuffer = await readFile(source.filePath)
+      const base64 = pdfBuffer.toString('base64')
+      return {
+        inlineData: {
+          data: base64,
+          mimeType: 'application/pdf',
+        },
+      }
+    } catch (error) {
+      throw new Error(`Failed to read PDF file ${source.filePath}: ${(error as Error).message}`)
     }
   }
 
