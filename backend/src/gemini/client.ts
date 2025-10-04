@@ -1,13 +1,17 @@
 import { Buffer } from 'node:buffer'
+import { readFile } from 'node:fs/promises'
 import { GoogleGenerativeAI, type Content, type GenerativeModel, type Part } from '@google/generative-ai'
 
 export type GeminiImageSource =
   | { kind: 'url'; url: string }
   | { kind: 'base64'; data: string; mimeType: string }
   | { kind: 'dataUrl'; dataUrl: string }
+  | { kind: 'file'; file: File }
+  | { kind: 'buffer'; buffer: Buffer; mimeType: string }
+  | { kind: 'pdf'; filePath: string }
 
 export type SceneExtractionRequest = {
-  images: GeminiImageSource[]
+  image: GeminiImageSource
   manualTitle?: string
   pageNo?: number
   previousStepSummary?: string
@@ -61,13 +65,13 @@ export type GeminiClientConfig = {
   embeddingModel?: string
 }
 
-const DEFAULT_PASS_ONE_MODEL = 'gemini-1.5-pro-latest'
-const DEFAULT_PASS_TWO_MODEL = 'gemini-1.5-pro-latest'
+const DEFAULT_PASS_ONE_MODEL = 'gemini-2.5-pro'
+const DEFAULT_PASS_TWO_MODEL = 'gemini-2.5-flash'
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-004'
 
 const PASS_ONE_SYSTEM_PROMPT = `You are an expert at interpreting IKEA-style assembly manuals.
 
-Given one or more images from a manual step, you must return STRICT JSON matching:
+Given a single image from a manual step, you must return STRICT JSON matching:
 {
   "parts": [
     { "id": "string?", "name": "string?", "type": "box|cylinder|plane|sphere?", "quantity": number?, "dimensions": { "key": number }?, "material": "string?" }
@@ -130,22 +134,24 @@ export class GeminiClient {
 
   async extractStep(request: SceneExtractionRequest): Promise<SceneExtractionResult> {
     const model = this.getModel(this.passOneModelName)
-    const imageParts = await Promise.all(request.images.map(resolveImageSource))
+    const imagePart = await resolveImageSource(request.image)
 
     const contents: Content[] = [
-      { role: 'system', parts: [{ text: PASS_ONE_SYSTEM_PROMPT }] },
       {
         role: 'user',
         parts: [
           {
             text: buildPassOneUserPrompt(request.manualTitle, request.pageNo, request.previousStepSummary, request.extraInstructions),
           },
-          ...imageParts,
+          imagePart,
         ],
       },
     ]
 
-    const result = await model.generateContent({ contents })
+    const result = await model.generateContent({ 
+      contents,
+      systemInstruction: PASS_ONE_SYSTEM_PROMPT
+    })
     const rawText = result.response.text() ?? ''
     const json = parseJsonFromResponse(rawText)
 
@@ -162,7 +168,6 @@ export class GeminiClient {
     const model = this.getModel(this.passTwoModelName)
 
     const contents: Content[] = [
-      { role: 'system', parts: [{ text: PASS_TWO_SYSTEM_PROMPT }] },
       {
         role: 'user',
         parts: [
@@ -172,7 +177,10 @@ export class GeminiClient {
       },
     ]
 
-    const result = await model.generateContent({ contents })
+    const result = await model.generateContent({ 
+      contents,
+      systemInstruction: PASS_TWO_SYSTEM_PROMPT
+    })
     const rawText = result.response.text() ?? ''
     const trimmed = rawText.trim()
 
@@ -194,7 +202,6 @@ export class GeminiClient {
     const model = this.getModel(this.passOneModelName)
 
     const contents: Content[] = [
-      { role: 'system', parts: [{ text: QA_SYSTEM_PROMPT }] },
       {
         role: 'user',
         parts: [
@@ -206,7 +213,10 @@ export class GeminiClient {
       },
     ]
 
-    const result = await model.generateContent({ contents })
+    const result = await model.generateContent({ 
+      contents,
+      systemInstruction: QA_SYSTEM_PROMPT
+    })
     const rawText = result.response.text() ?? ''
 
     return { answer: rawText.trim(), rawText }
@@ -294,6 +304,42 @@ async function resolveImageSource(source: GeminiImageSource): Promise<Part> {
     }
   }
 
+  if (source.kind === 'file') {
+    const arrayBuffer = await source.file.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+    return {
+      inlineData: {
+        data: base64,
+        mimeType: source.file.type || 'image/png',
+      },
+    }
+  }
+
+  if (source.kind === 'buffer') {
+    return {
+      inlineData: {
+        data: source.buffer.toString('base64'),
+        mimeType: source.mimeType,
+      },
+    }
+  }
+
+  if (source.kind === 'pdf') {
+    try {
+      const pdfBuffer = await readFile(source.filePath)
+      const base64 = pdfBuffer.toString('base64')
+      return {
+        inlineData: {
+          data: base64,
+          mimeType: 'application/pdf',
+        },
+      }
+    } catch (error) {
+      throw new Error(`Failed to read PDF file ${source.filePath}: ${(error as Error).message}`)
+    }
+  }
+
+  // Handle URL case
   const response = await fetch(source.url)
   if (!response.ok) {
     throw new Error(`Failed to fetch image ${source.url}: ${response.status}`)
