@@ -6,6 +6,12 @@ A modern web application that transforms traditional furniture assembly manuals 
 
 ScrewYouIkea revolutionizes the furniture assembly experience by converting static instruction manuals into dynamic, interactive guides. Upload your IKEA (or other furniture) assembly instructions and get an enhanced digital experience with 3D visualizations, voice assistance, and step-by-step navigation.
 
+## Images
+# <img width="1918" height="863" alt="1" src="https://github.com/user-attachments/assets/ca1d1b60-35b0-4e47-b588-3221a06ee5e3" />
+# <img width="1897" height="863" alt="2" src="https://github.com/user-attachments/assets/a3aaec1c-32e5-4f4f-9a0d-ffd54a64d656" />
+# <img width="1897" height="867" alt="3" src="https://github.com/user-attachments/assets/a42e467b-2b0e-468a-b953-5292f82031b2" />
+# <img width="1918" height="861" alt="4" src="https://github.com/user-attachments/assets/0336501f-5639-4bb4-a12c-60addf7cb403" />
+
 ## Features
 
 ### 📤 Manual Upload & Processing
