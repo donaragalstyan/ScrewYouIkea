@@ -12,12 +12,16 @@ interface ExtractedStep {
     name: string
     type: string
     quantity: number
+    image?: string
   }>
   tools: Array<{
     name: string
+    image?: string
   }>
   rawText: string
   imagePath: string
+  title?: string
+  threeCode?: string
 }
 
 interface PartsPanelProps {
@@ -100,7 +104,7 @@ export function PartsPanel({ currentStep, extractedSteps, isExtracting = false }
       id: part.id,
       name: part.name,
       count: part.quantity,
-      sprite: "/placeholder.svg", // No sprite available for extracted parts
+      sprite: part.image || "/placeholder.svg",
       isActive: true
     }))
     
@@ -108,7 +112,7 @@ export function PartsPanel({ currentStep, extractedSteps, isExtracting = false }
       id: `T${index + 1}`,
       name: tool.name,
       count: 1,
-      sprite: "/placeholder.svg", // No sprite available for extracted tools
+      sprite: tool.image || "/placeholder.svg",
       isActive: true
     }))
     

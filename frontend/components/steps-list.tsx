@@ -14,12 +14,16 @@ interface ExtractedStep {
     name: string
     type: string
     quantity: number
+    image?: string
   }>
   tools: Array<{
     name: string
+    image?: string
   }>
   rawText: string
   imagePath: string
+  title?: string
+  threeCode?: string
 }
 
 interface StepsListProps {
@@ -95,11 +99,12 @@ export function StepsList({ currentStep, onStepChange, extractedSteps, isExtract
           stepsToDisplay.map((step, index) => {
           // Handle both extracted steps and manual steps
           const stepIndex = isExtracted ? index : (step as any).index
+          const extractedStep = step as ExtractedStep
           const stepTitle = isExtracted 
-            ? `Step ${index + 1}` 
+            ? extractedStep.title || `Step ${index + 1}` 
             : (step as any).title
           const stepThumbnail = isExtracted 
-            ? (step as ExtractedStep).imagePath 
+            ? (extractedStep.imagePath || (extractedStep as any).image)
             : (step as any).thumbnail
           const stepWarnings = isExtracted ? [] : (step as any).warnings || []
           const stepInstructions = isExtracted 

@@ -39,20 +39,24 @@ interface SceneJson {
 
 interface Canvas3DProps {
   currentStep: number
-  sceneData?: SceneJson
+  sceneData?: SceneJson | null
+  stepCode?: string
+  stepTitle?: string
   isExtracting?: boolean
 }
 
-export function Canvas3D({ currentStep, sceneData, isExtracting = false }: Canvas3DProps) {
+export function Canvas3D({ currentStep, sceneData, stepCode, stepTitle, isExtracting = false }: Canvas3DProps) {
   const step = manualSteps[currentStep]
   const hasSceneData = Boolean(sceneData)
+  const codeToRun = stepCode ?? step?.threeCode
+  const derivedTitle = stepTitle ?? step?.title ?? (hasSceneData ? 'AI-Generated 3D Scene' : undefined)
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-1 items-center justify-center p-8">
-        <Card className="relative aspect-square w-full max-w-2xl overflow-hidden border-2 border-secondary bg-white">
+      <div className="flex flex-1 items-center justify-center p-4">
+        <Card className="relative flex h-full w-full max-h-[calc(100vh-160px)] max-w-5xl flex-col overflow-hidden border-2 border-secondary bg-white">
           {hasSceneData ? (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex flex-1 items-center justify-center p-6">
               <div className="text-center p-8">
                 <div className="text-2xl mb-4">🔧</div>
                 <h3 className="text-lg font-semibold mb-2">3D Assembly Visualization</h3>
@@ -65,7 +69,15 @@ export function Canvas3D({ currentStep, sceneData, isExtracting = false }: Canva
               </div>
             </div>
           ) : (
-            <ThreeRunner code={step?.threeCode} stepKey={currentStep} />
+            codeToRun ? (
+              <div className="flex-1 min-h-0">
+                <ThreeRunner code={codeToRun} stepKey={currentStep} />
+              </div>
+            ) : (
+              <div className="flex h-full flex-1 items-center justify-center">
+                <p className="text-muted-foreground text-sm">Interactive preview not available for this step.</p>
+              </div>
+            )
           )}
 
           <div className="absolute left-4 top-4 flex max-w-[75%] flex-col gap-1 rounded-lg border border-border bg-card/95 px-3 py-2 text-xs font-medium text-foreground backdrop-blur-sm">
@@ -78,12 +90,12 @@ export function Canvas3D({ currentStep, sceneData, isExtracting = false }: Canva
                 </span>
               )}
             </span>
-            {hasSceneData ? (
-              <span className="text-sm text-foreground">AI-Generated 3D Scene</span>
-            ) : isExtracting ? (
+            {isExtracting ? (
               <span className="text-sm text-muted-foreground">Analyzing 3D structure...</span>
             ) : (
-              step?.title && <span className="text-sm text-foreground">{step.title}</span>
+              <span className="text-sm text-foreground">
+                {derivedTitle || 'Interactive preview'}
+              </span>
             )}
           </div>
 

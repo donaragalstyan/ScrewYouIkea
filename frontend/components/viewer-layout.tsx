@@ -13,10 +13,12 @@ interface Part {
   name: string
   type: string
   quantity: number
+  image?: string
 }
 
 interface Tool {
   name: string
+  image?: string
 }
 
 interface SceneJson {
@@ -53,12 +55,14 @@ interface SceneJson {
 
 interface ExtractedStep {
   pageNo: number
-  sceneJson: SceneJson
+  sceneJson: SceneJson | null
   instructions: string[]
   parts: Part[]
   tools: Tool[]
   rawText: string
   imagePath: string
+  title?: string
+  threeCode?: string
 }
 
 interface LibraryItem {
@@ -71,6 +75,30 @@ interface LibraryItem {
   thumbnail: string
   steps?: ExtractedStep[]
   extractedAt?: string
+  customScene?: string
+}
+
+interface CustomManualDefinitionStep {
+  index: number
+  title: string
+  instructions: string[]
+  image: string
+  parts: Array<{
+    id: string
+    name: string
+    type: string
+    image?: string
+    quantity: number
+  }>
+  threeCode: string
+}
+
+interface CustomManualDefinition {
+  id: string
+  name: string
+  description?: string
+  thumbnail?: string
+  steps: CustomManualDefinitionStep[]
 }
 
 interface ViewerLayoutProps {
@@ -89,6 +117,62 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
     totalPages: number
     extractedPages: number[]
   } | null>(null)
+
+  const loadCustomManual = async (manual: LibraryItem) => {
+    if (!manual.customScene) return
+
+    try {
+      const response = await fetch(manual.customScene)
+      if (!response.ok) {
+        throw new Error(`Failed to load custom scene definition: ${response.status}`)
+      }
+
+      const definition = (await response.json()) as CustomManualDefinition
+      const mappedSteps: ExtractedStep[] = (definition.steps || [])
+        .slice()
+        .sort((a, b) => a.index - b.index)
+        .map((step) => {
+          const parts = step.parts.filter((part) => part.type !== 'tool').map((part) => ({
+            id: part.id,
+            name: part.name,
+            type: part.type,
+            quantity: part.quantity,
+            image: part.image,
+          }))
+
+          const tools = step.parts
+            .filter((part) => part.type === 'tool')
+            .map((part) => ({
+              name: part.name,
+              image: part.image,
+            }))
+
+          return {
+            pageNo: step.index + 1,
+            sceneJson: null,
+            instructions: step.instructions,
+            parts,
+            tools,
+            rawText: step.instructions.join(' '),
+            imagePath: step.image,
+            title: step.title,
+            threeCode: step.threeCode,
+          }
+        })
+
+      const manualWithSteps: LibraryItem = {
+        ...manual,
+        manualName: definition.name || manual.manualName,
+        thumbnail: definition.thumbnail || manual.thumbnail,
+        steps: mappedSteps,
+      }
+
+      setManualData(manualWithSteps)
+      setIsExtracting(false)
+    } catch (error) {
+      console.error('Error loading custom manual definition:', error)
+    }
+  }
 
   useEffect(() => {
     const fetchManualData = async () => {
@@ -110,6 +194,11 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
             stepsLength: manual.steps?.length || 0
           })
           setManualData(manual)
+          if (manual.customScene) {
+            console.log('🧩 Custom scene detected, loading local definition...')
+            await loadCustomManual(manual)
+            return
+          }
           // Check if extraction is needed (no steps yet)
           if (!manual.steps || manual.steps.length === 0) {
             if (!extractionStarted) {
@@ -146,6 +235,11 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
   }, [manualId]) // Only run when manualId changes
 
   const startStepExtraction = async (manual: LibraryItem) => {
+    if (manual.customScene) {
+      console.log('🧩 Custom manual detected, skipping extraction workflow')
+      setIsExtracting(false)
+      return
+    }
     console.log('🚀 Starting step extraction for manual:', manual.manualName)
     
     try {
@@ -250,6 +344,13 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
         const updatedManual = libraryData.library.find((item: LibraryItem) => item.id === actualId)
         
         if (updatedManual) {
+          if (updatedManual.customScene) {
+            console.log('🧩 Custom manual encountered during polling, stopping extraction loop.')
+            clearInterval(pollInterval)
+            await loadCustomManual(updatedManual)
+            setIsExtracting(false)
+            return
+          }
           console.log('✅ Found updated manual:', {
             id: updatedManual.id,
             name: updatedManual.manualName,
@@ -350,9 +451,13 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
       })
       
       if (updatedManual) {
-        setManualData(updatedManual)
-        if (updatedManual.steps && updatedManual.steps.length > 0) {
-          setIsExtracting(false)
+        if (updatedManual.customScene) {
+          await loadCustomManual(updatedManual)
+        } else {
+          setManualData(updatedManual)
+          if (updatedManual.steps && updatedManual.steps.length > 0) {
+            setIsExtracting(false)
+          }
         }
       }
     } catch (error) {
@@ -404,8 +509,10 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
               <>
                 <h1 className="font-semibold">{manualData.manualName}</h1>
                 <p className="text-xs text-muted-foreground">
-                  {manualData.steps 
-                    ? `${manualData.steps.length} assembly steps • AI-extracted`
+                  {manualData.steps
+                    ? manualData.customScene
+                      ? `${manualData.steps.length} assembly steps • Custom 3D guide`
+                      : `${manualData.steps.length} assembly steps • AI-extracted`
                     : `${manualData.totalPages} pages • Converted manual`
                   }
                 </p>
@@ -453,6 +560,9 @@ export function ViewerLayout({ manualId }: ViewerLayoutProps) {
             <Canvas3D 
               currentStep={currentStep}
               sceneData={manualData?.steps?.[currentStep]?.sceneJson}
+              stepCode={manualData?.steps?.[currentStep]?.threeCode}
+              stepTitle={manualData?.steps?.[currentStep]?.title}
+              stepImage={manualData?.steps?.[currentStep]?.imagePath}
               isExtracting={isExtracting && !manualData?.steps?.[currentStep]}
             />
           </div>

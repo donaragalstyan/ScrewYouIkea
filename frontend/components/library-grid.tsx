@@ -30,6 +30,7 @@ interface LibraryItem {
   totalPages: number
   createdAt: string
   thumbnail: string
+  customScene?: string
 }
 
 interface Manual {
@@ -40,7 +41,7 @@ interface Manual {
   steps: number
   parts: number
   uploadedAt: string
-  type?: 'converted' | 'default'
+  type?: 'converted' | 'default' | 'custom'
 }
 
 // No default manuals - only show converted ones
@@ -70,21 +71,23 @@ export function LibraryGrid() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ pages: item.pages })
             })
-            
+
             if (verifyResponse.ok) {
               const verifyData = await verifyResponse.json()
-              
+
               // Only include if at least one file exists
               if (verifyData.verifiedPages.length > 0) {
+                const isCustom = Boolean(item.customScene)
+                const manualId = isCustom ? item.id : `converted_${item.id}`
                 validManuals.push({
-                  id: `converted_${item.id}`,
+                  id: manualId,
                   title: item.manualName,
                   status: 'completed',
                   thumbnail: verifyData.verifiedPages[0], // Use first verified page as thumbnail
                   steps: verifyData.verifiedPages.length,
                   parts: verifyData.verifiedPages.length,
                   uploadedAt: formatUploadTime(item.createdAt),
-                  type: 'converted' as const
+                  type: (isCustom ? 'custom' : 'converted') as const
                 })
               }
             }
@@ -229,22 +232,22 @@ export function LibraryGrid() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-              <Link href={manual.type === 'converted' ? `/viewer/${manual.id}` : `/viewer/${manual.id}`}>
+              <Link href={`/viewer/${manual.id}`}>
                 <Button
                   size="sm"
                   variant="secondary"
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-2 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  {manual.type === 'converted' ? <FileImage className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {manual.type === 'converted' ? 'View Pages' : 'View'}
+                  <FileImage className="h-4 w-4" />
+                  {manual.type === 'converted' ? 'View Pages' : manual.type === 'custom' ? 'View Guide' : 'View'}
                 </Button>
               </Link>
 
               {/* Badge for converted manuals */}
-              {manual.type === 'converted' && (
+              {manual.type && (
                 <div className="absolute top-2 left-2">
                   <span className="bg-secondary text-secondary-foreground px-2 py-1 rounded-full text-xs font-medium">
-                    Converted
+                    {manual.type === 'converted' ? 'Converted' : manual.type === 'custom' ? 'Custom' : 'Manual'}
                   </span>
                 </div>
               )}

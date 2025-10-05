@@ -65,6 +65,7 @@ interface LibraryItem {
   thumbnail: string
   steps?: ExtractedStep[]
   extractedAt?: string
+  customScene?: string
 }
 
 export async function POST(request: NextRequest) {
