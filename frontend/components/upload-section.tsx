@@ -6,16 +6,27 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Upload, FileText, ImageIcon, Search } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { SearchLibraryModal } from "./search-library-modal"
 import { ManualDetailsModal } from "./manual-details-modal"
-import { ProgressModal } from "./progress-modal"
+import { ProgressModal } from "./progress-modal-wrapper"
+import { ConvertedPagesDisplay } from "./converted-pages-display"
+
+// Type definition to avoid top-level import
+type ConvertedPage = {
+  pageNumber: number
+  imageDataUrl: string
+  blob: Blob
+}
 
 export function UploadSection() {
+  const router = useRouter()
   const [isDragging, setIsDragging] = useState(false)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [isManualDetailsOpen, setIsManualDetailsOpen] = useState(false)
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [convertedPages, setConvertedPages] = useState<ConvertedPage[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUploadClick = () => {
@@ -51,10 +62,55 @@ export function UploadSection() {
     handleUploadClick()
   }
 
-  const handleProgressComplete = () => {
+  const handleProgressComplete = (convertedPagesResult?: ConvertedPage[], manualId?: string) => {
     setIsProgressModalOpen(false)
-    console.log("[v0] Generation complete!")
-    // TODO: Navigate to viewer page or show success message
+    
+    if (convertedPagesResult && convertedPagesResult.length > 0) {
+      console.log("[v0] PDF converted to", convertedPagesResult.length, "JPG pages:", convertedPagesResult)
+      console.log("[v0] Manual ID passed from progress modal:", manualId)
+      setConvertedPages(convertedPagesResult)
+      
+      // Use the manual ID passed from the progress modal first
+      if (manualId) {
+        console.log("[v0] Navigating to viewer with passed ID:", `/viewer/${manualId}`)
+        router.push(`/viewer/${manualId}`)
+        return
+      }
+      
+      // Fallback: check localStorage
+      const latestManualId = localStorage.getItem('latestManualId')
+      console.log("[v0] Checking localStorage for manual ID:", latestManualId)
+      
+      if (latestManualId) {
+        console.log("[v0] Navigating to viewer with localStorage ID:", `/viewer/${latestManualId}`)
+        router.push(`/viewer/${latestManualId}`)
+        return
+      }
+      
+      // Final fallback: try to find the latest manual from the library API
+      console.log("[v0] No manual ID found, fetching from library API")
+      fetch('/api/add-to-library')
+        .then(response => response.json())
+        .then(data => {
+          console.log("[v0] Library API response:", data)
+          if (data.library && data.library.length > 0) {
+            // Get the most recent manual (first in sorted array)
+            const latestManual = data.library[0]
+            const fallbackManualId = `converted_${latestManual.id}`
+            console.log("[v0] Found latest manual from API:", fallbackManualId)
+            router.push(`/viewer/${fallbackManualId}`)
+          } else {
+            console.log("[v0] No manuals found in library, going to library page")
+            router.push('/library')
+          }
+        })
+        .catch((error) => {
+          console.error("[v0] Error fetching from library API:", error)
+          router.push('/library')
+        })
+    } else {
+      console.log("[v0] Generation complete!")
+    }
   }
 
   return (
@@ -121,7 +177,11 @@ export function UploadSection() {
               </div>
 
               <h3 className="mb-2 text-xl font-semibold text-primary">Upload Assembly Manual</h3>
-              <p className="mb-6 text-sm text-primary/70">Drag and drop your files here, or click to browse</p>
+              <p className="mb-6 text-sm text-primary/70">
+                Drag and drop your files here, or click to browse
+                <br />
+                <span className="text-xs text-primary/50">PDFs will be automatically converted to JPG images</span>
+              </p>
 
               <div className="mb-6 flex items-center justify-center gap-4">
                 <div className="flex items-center gap-2 text-sm text-primary/70">
@@ -166,6 +226,16 @@ export function UploadSection() {
             <span>Step-by-Step Guide</span>
           </div>
         </div>
+
+        {/* Display converted pages if available */}
+        {convertedPages.length > 0 && (
+          <div className="mt-12">
+            <ConvertedPagesDisplay 
+              pages={convertedPages} 
+              originalFileName={uploadedFile?.name}
+            />
+          </div>
+        )}
       </div>
 
       <SearchLibraryModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
@@ -175,7 +245,7 @@ export function UploadSection() {
         fileName={uploadedFile?.name || ""}
         onGenerate={handleGenerate}
       />
-      <ProgressModal open={isProgressModalOpen} onComplete={handleProgressComplete} />
+      <ProgressModal open={isProgressModalOpen} onComplete={handleProgressComplete} file={uploadedFile} />
     </section>
   )
 }
